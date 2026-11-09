@@ -1,0 +1,12 @@
+body {
+	background-color: #008080;
+}
+
+#tank {
+	width: 960px; /*hur stor rutan är. En multiplicering av det som är definierat för objektet i HTML, i det här fallet 3*320*/
+	image-rendering: pixelated; /*hur rendering sker. Pixelated ger skarpa kanter på pixelart*/
+	background-color: #3cb371;
+	border: 2px solid black;
+	display: block;
+	margin: 20px auto;
+}
