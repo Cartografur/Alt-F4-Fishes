@@ -27,18 +27,13 @@ const species = [
 	{ name: "Blue blobb", color: "#0000ff", w:8, h:7, spd:0.5}
 ];
 
-
-
-// --- 3 FISKEN
-const fish= makeFish(species[2]);
-	//x:50, // Fisk XY är fiskens start-position, spd=Spdeed
-	//Y:90,
-	//spd:1,
-	//w:3, // Fish WH bredd och höjd
-	//h:2,
-	//color:"#ff0000"
+// --- 3 Fiskstim
+const fishes = [];
+for (let i =0; i<8; i++) {
+  const  sp = species[Math.floor(Math.random()*species.length)];
+  fishes.push(makeFish(sp));    
+  }
 	
-
 // --- 4 FUNKTIONER
 
 function randomBetween(min, max) { // Formel för random random number, används för fiskars position
@@ -90,14 +85,13 @@ function gameLoop(){
 	ctx.clearRect(0,0,320,180);
 	
 	drawTank();
-	
-	updateFish(fish);
-	
-	drawFish(fish);
-	
-	requestAnimationFrame(gameLoop);
 
+  fishes.forEach(f => {
+  	updateFish(f);
+	  drawFish(f);
+  });
 
+    requestAnimationFrame(gameLoop);
 }
 
 gameLoop();
