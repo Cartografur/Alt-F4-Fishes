@@ -19,38 +19,85 @@ function drawTank() {
 	ctx.fillRect(0,20,320,2);
 }
 
-// --- 2 FISKEN
-let fishX=50; // Fisk XY är fiskens start-position, sp=speed
-let fishY=90;
-let fishSp=1;
-const fishW=3; // Fish WH bredd och höjd
-const fishH=2;
+// --- 2 Spdecies data
+const species = [
+	{ name: "Red tetra", color: "#ff0000", w:3, h:2, spd:1 },
+	{ name: "Yellow guppy", color: "#ffff00", w:3, h:3, spd:1.5 },
+	{ name: "Green needle", color: "#00ff00", w:10, h:1, spd: 0.7},
+	{ name: "Blue blobb", color: "#0000ff", w:8, h:7, spd:0.5}
+];
 
 
-// --- 3 LOOP det här är biten som animerar. Rensar och ritar om vyn
-function gameLoop(){
-	ctx.clearRect(0,0,320,180);
-	drawTank();
 
-	fishX+=fishSp; //Samma som "fishX=fishX+fishSp"
+// --- 3 FISKEN
+const fish= makeFish(species[2]);
+	//x:50, // Fisk XY är fiskens start-position, spd=Spdeed
+	//Y:90,
+	//spd:1,
+	//w:3, // Fish WH bredd och höjd
+	//h:2,
+	//color:"#ff0000"
 	
-	if (fishX>=320-fishW) { 
-		fishSp*= -1;
+
+// --- 4 FUNKTIONER
+
+function randomBetween(min, max) { // Formel för random random number, används för fiskars position
+	return min + Math.random()*(max-min);
+}
+
+function updateFish(f) { //här uppdateras fiskens positions i tanken
+	f.x+=f.spd; //Samma som "fishX=fishX+fishSpd"
+	
+	if (f.x>=320-f.w) { 
+		f.spd*= -1;
 	}
-	if (fishX<=0){ 
-		fishSp*=-1;
+	if (f.x<=0){ 
+		f.spd*=-1;
 	}
-	ctx.fillStyle="#ff0000";
-	ctx.fillRect(fishX,fishY,fishW,fishH);
+}
+
+function drawFish(f) { //Här ritas fisken utifrån fisskfärg och fiskens huvud beroende på rörelseriktning
+	ctx.fillStyle=f.color
+	ctx.fillRect(Math.floor(f.x), Math.floor(f.y), f.w, f.h); //avvrundar positionen för fiskens placering till jämna pixlar
 	
 	ctx.fillStyle="#000000";
-	if (fishSp>0){
-		ctx.fillRect(fishX+fishW-1,fishY,1,1);
+	if (f.spd>0){
+		ctx.fillRect(Math.floor(f.x) + f.w - 1, Math.floor(f.y), 1, 1);
 	}
 	else{
-		ctx.fillRect(fishX,fishY,1,1);
+		ctx.fillRect(Math.floor(f.x), Math.floor(f.y), 1, 1);
 	}
+}
+
+function makeFish(sp) {
+	let dir = 1;
+	if (Math.random() < 0.5) {
+		dir = -1;
+	}
+	return {
+		x: randomBetween(0,320-sp.w ),
+		y: randomBetween(23,154-sp.h ),
+		spd: sp.spd*dir,
+		w: sp.w,
+		h: sp.h,
+		color: sp.color
+	};
+}
+	
+
+// --- 5 LOOP det här är biten som animerar. Rensar och ritar om vyn
+function gameLoop(){
+	ctx.clearRect(0,0,320,180);
+	
+	drawTank();
+	
+	updateFish(fish);
+	
+	drawFish(fish);
+	
 	requestAnimationFrame(gameLoop);
+
+
 }
 
 gameLoop();
