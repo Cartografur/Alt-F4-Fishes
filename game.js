@@ -21,15 +21,15 @@ function drawTank() {
 
 // --- 2 Spdecies data
 const species = [
-	{ name: "Red tetra", color: "#ff0000", w:3, h:2, spd:1 },
-	{ name: "Yellow guppy", color: "#ffff00", w:3, h:3, spd:1.5 },
-	{ name: "Green needle", color: "#00ff00", w:10, h:1, spd: 0.7},
-	{ name: "Blue blobb", color: "#0000ff", w:8, h:7, spd:0.5}
+	{ name: "Red tetra", color: "#ff0000", w:3, h:2, vx:0.8 },
+	{ name: "Yellow guppy", color: "#ffff00", w:3, h:3, vx:1.1 },
+	{ name: "Green needle", color: "#00ff00", w:10, h:1, vx: 0.5},
+	{ name: "Blue blobb", color: "#0000ff", w:8, h:7, vx:0.3}
 ];
 
 // --- 3 Fiskstim
 const fishes = [];
-for (let i =0; i<8; i++) {
+for (let i =0; i<20; i++) {
   const  sp = species[Math.floor(Math.random()*species.length)];
   fishes.push(makeFish(sp));    
   }
@@ -41,22 +41,37 @@ function randomBetween(min, max) { // Formel för random random number, används
 }
 
 function updateFish(f) { //här uppdateras fiskens positions i tanken
-	f.x+=f.spd; //Samma som "fishX=fishX+fishSpd"
+	if (Math.random() < 0.002) { // ett random tillägg för ändring av riktning i x
+		f.vx *= -1;
+	}
+	if (Math.random() < 0.01) { // ett random tillägg för ändring av riktning i y
+	f.vy = randomBetween(-0.2, 0.2);
+	}
 	
-	if (f.x>=320-f.w) { 
-		f.spd*= -1;
+	f.x+=f.vx; //Samma som "fishx=fishy+fishvx", uppdaterar positioni x
+	f.y+=f.vy; //uppdaterar fisk i y-led, vy är random, inte fisk-specifik
+
+	if (f.x>=320-f.w) { //"chek" för kanter i x
+	f.vx=-Math.abs(f.vx);
 	}
 	if (f.x<=0){ 
-		f.spd*=-1;
+		f.vx=Math.abs(f.vx);
+	}
+	
+	if (f.y>=155-f.h) { //"Check" för kanter i y
+		f.vy=-Math.abs(f.vy);
+	}
+	if (f.y<=23){ 
+		f.vy=Math.abs(f.vy);
 	}
 }
 
-function drawFish(f) { //Här ritas fisken utifrån fisskfärg och fiskens huvud beroende på rörelseriktning
+function drawFish(f) { //Här ritas fisken utifrån fisk-species 
 	ctx.fillStyle=f.color
 	ctx.fillRect(Math.floor(f.x), Math.floor(f.y), f.w, f.h); //avvrundar positionen för fiskens placering till jämna pixlar
 	
-	ctx.fillStyle="#000000";
-	if (f.spd>0){
+	ctx.fillStyle="#000000"; //och nedan fiskens huvud beroende på rörelseriktning
+	if (f.vx>0){
 		ctx.fillRect(Math.floor(f.x) + f.w - 1, Math.floor(f.y), 1, 1);
 	}
 	else{
@@ -72,7 +87,8 @@ function makeFish(sp) {
 	return {
 		x: randomBetween(0,320-sp.w ),
 		y: randomBetween(23,154-sp.h ),
-		spd: sp.spd*dir,
+		vx: sp.vx*dir,
+		vy: randomBetween(-0.2, 0.2),
 		w: sp.w,
 		h: sp.h,
 		color: sp.color
