@@ -1,22 +1,22 @@
 const canvas=document.getElementById("tank");
 const ctx=canvas.getContext("2d");
+const fogBottom = [163, 171];      // bottenkant av bagrund och mellan
+const floor = [163, 171, 179];     // lägsta tillåtna y (botten-värde) för bakgrund-, mellan- och förgrundsFISK
 
 // --- 1 AKVARIUM/TANK
 function drawTank() {
 	ctx.fillStyle="#2071b2"; //Defeinierar färgen som används för VATTEN
 	ctx.fillRect(0,20,320,160); //(x, y, widh, height), xy origo är uppe till vänster i objektet, positiva värden till höger och ner
 
-	ctx.fillStyle="#baa86f"; //SAND_mörk
-	ctx.fillRect(0,155,320,10);
-
-	ctx.fillStyle="#C2B280"; //SAND_medium
-	ctx.fillRect(0,160,320,5);
-
-	ctx.fillStyle="#Cabc91"; //SAND_ljus
-	ctx.fillRect(0,165,320,15);
+	ctx.fillStyle="#Cabc91"; //SAND
+	ctx.fillRect(0,155,320,25);
 
 	ctx.fillStyle="#afeeee"; //YTLINJE
 	ctx.fillRect(0,20,320,2);
+}
+function drawFog(bottom) {
+	ctx.fillStyle="rgba(32, 113, 178, 0.6)"; //dim-lager,  rgb=röd, grön, blå, genomskinlighet (0 till 1) för att skapa djup
+	ctx.fillRect(0,23,320,bottom-23); 
 }
 
 // --- 2 Spdecies data
@@ -29,7 +29,7 @@ const species = [
 
 // --- 3 Fiskstim
 const fishes = [];
-for (let i =0; i<20; i++) {
+for (let i =0; i<50; i++) {
   const  sp = species[Math.floor(Math.random()*species.length)];
   fishes.push(makeFish(sp));    
   }
@@ -58,7 +58,7 @@ function updateFish(f) { //här uppdateras fiskens positions i tanken
 		f.vx=Math.abs(f.vx);
 	}
 	
-	if (f.y>=155-f.h) { //"Check" för kanter i y
+	if (f.y>=floor[f.layer]-f.h) { //"Check" för kanter i y
 		f.vy=-Math.abs(f.vy);
 	}
 	if (f.y<=23){ 
@@ -85,6 +85,7 @@ function makeFish(sp) {
 		dir = -1;
 	}
 	return {
+		layer: Math.floor(Math.random()*3),
 		x: randomBetween(0,320-sp.w ),
 		y: randomBetween(23,154-sp.h ),
 		vx: sp.vx*dir,
@@ -95,17 +96,20 @@ function makeFish(sp) {
 	};
 }
 	
-
 // --- 5 LOOP det här är biten som animerar. Rensar och ritar om vyn
 function gameLoop(){
 	ctx.clearRect(0,0,320,180);
 	
 	drawTank();
+	
+	fishes.forEach(f => updateFish(f));
 
-  fishes.forEach(f => {
-  	updateFish(f);
-	  drawFish(f);
-  });
+	for (let layer=0; layer < 3; layer++) { //Börja på lager 0. är lager mindre än 3, lägg till lager(?)
+		fishes.filter(f => f.layer === layer).forEach(f => drawFish(f));
+		if (layer < 2) {
+			drawFog(fogBottom[layer]);
+			}
+		};
 
     requestAnimationFrame(gameLoop);
 }
