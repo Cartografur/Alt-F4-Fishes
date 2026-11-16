@@ -49,10 +49,10 @@ function drawFog(b) {
 
 // --- 2 Spdecies data
 const species = [
-	{ name: "Red tetra", color: "#ff0000", w:3, h:2, vx:0.8 },
-	{ name: "Yellow guppy", color: "#ffff00", w:3, h:3, vx:1.1 },
-	{ name: "Green needle", color: "#00ff00", w:10, h:1, vx: 0.5},
-	{ name: "Blue blobb", color: "#0000ff", w:8, h:7, vx:0.3}
+	{ name: "Red tetra", color: "#ff0000", w:3, h:2, vx:48 }, //vx är förflyttning i pixlar per sekund
+	{ name: "Yellow guppy", color: "#ffff00", w:3, h:3, vx:66 },
+	{ name: "Green needle", color: "#00ff00", w:10, h:1, vx: 30},
+	{ name: "Blue blobb", color: "#0000ff", w:8, h:7, vx:18} 
 ];
 
 // --- 3 Fiskstim
@@ -94,29 +94,33 @@ function randomBetween(min, max) { // Formel för random random number, används
 	return min + Math.random()*(max-min);
 }
 
-function updateFish(f) { //här uppdateras fiskens positions i tanken
+function updateFish(f, dt) { //här uppdateras fiskens positions i tanken
 	const b = bounds[f.layer];
-	if (Math.random() < 0.002) { // ett random tillägg för ändring av riktning i x
+	if (Math.random() < 0.12*dt) { // ett random tillägg för ändring av riktning i x (chans/sekund)
 		f.vx *= -1;
 	}
-	if (Math.random() < 0.01) { // ett random tillägg för ändring av riktning i y
-	f.vy = randomBetween(-0.2, 0.2);
+	if (Math.random() < 0.6*dt) { // ett random tillägg för ändring av riktning i y (chans/sekund)
+	f.vy = randomBetween(-12, 12);
 	}
 	
-	f.x+=f.vx; //Samma som "fishx=fishy+fishvx", uppdaterar positioni x
-	f.y+=f.vy; //uppdaterar fisk i y-led, vy är random, inte fisk-specifik
+	f.x+=f.vx*dt; //Samma som "fishx=fishy+fishvx", uppdaterar positioni x
+	f.y+=f.vy*dt; //uppdaterar fisk i y-led, vy är random, inte fisk-specifik
 
 	if (f.x>=b.right-f.w) { //"chek" för kanter i x
+	f.x=b.right-f.w; //hindrar fisk från att simma utanför sitt lager
 	f.vx=-Math.abs(f.vx);
 	}
 	if (f.x<=b.left){ 
+		f.x=b.left;
 		f.vx=Math.abs(f.vx);
 	}
 	
 	if (f.y>=b.floor-f.h) { //"Check" för kanter i y
+		f.y=b.floor-f.h;
 		f.vy=-Math.abs(f.vy);
 	}
 	if (f.y<=waterTop){ 
+		f.y=waterTop;
 		f.vy=Math.abs(f.vy);
 	}
 }
@@ -146,7 +150,7 @@ function makeFish(sp) {
 		x: randomBetween(b.left, b.right-sp.w),
 		y: randomBetween(waterTop, b.floor-sp.h),
 		vx: sp.vx*dir,
-		vy: randomBetween(-0.2, 0.2),
+		vy: randomBetween(-12, 12),
 		w: sp.w,
 		h: sp.h,
 		color: sp.color
@@ -154,12 +158,15 @@ function makeFish(sp) {
 }
 	
 // --- 5 LOOP det här är biten som animerar. Rensar och ritar om vyn
-function gameLoop(){
+function gameLoop(now){
+	let dt=(now-lastTime)/1000; //millisec till sec.
+	lastTime=now;
+	dt = Math.min(dt, 0.1); //cap
 	ctx.clearRect(0,0,W,H);
 	
 	drawTank();
 	
-	fishes.forEach(f => updateFish(f));
+	fishes.forEach(f => updateFish(f, dt));
 
 	for (let layer=0; layer < 3; layer++) { //Börja på lager 0. är lager mindre än 3, lägg till lager(?)
 		fishes.filter(f => f.layer === layer).forEach(f => drawFish(f));
@@ -175,5 +182,5 @@ function gameLoop(){
 
     requestAnimationFrame(gameLoop);
 }
-
-gameLoop();
+let lastTime = performance.now();
+requestAnimationFrame(gameLoop);
