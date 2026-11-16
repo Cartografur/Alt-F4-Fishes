@@ -1,4 +1,6 @@
 const canvas=document.getElementById("tank");
+const lightBtn = document.getElementById("lightBtn");
+let lightsOn=true;
 const ctx=canvas.getContext("2d");
 const W = canvas.width; //canvas bredd i px
 const H = canvas.height; //canvad höjd i px
@@ -12,6 +14,11 @@ const step = (1 - backDepth) / 3; //tjocklek på varje skiva
 const backWall = makeBounds(backDepth);
 const bounds = [0.5, 1.5, 2.5].map(k => makeBounds(backDepth + step * k)); //fiskplan mitt i varje skiva
 const fogBounds = [1, 2].map(k => makeBounds(backDepth + step * k)); //dimskikt mellan skivorna
+
+
+lightBtn.addEventListener("click", () => {
+	lightsOn=!lightsOn;
+});
 
 // --- 1 AKVARIUM/TANK
 function drawTank() {
@@ -36,7 +43,7 @@ function drawTank() {
 	ctx.fillRect(0, surfaceY, W, 2);
 }
 function drawFog(b) {
-	ctx.fillStyle="rgba(32, 113, 178, 0.6)"; //dim-lager,  rgb=röd, grön, blå, genomskinlighet (0 till 1) för att skapa djup
+	ctx.fillStyle="rgba(32, 113, 178, 0.4)"; //dim-lager,  rgb=röd, grön, blå, genomskinlighet (0 till 1) för att skapa djup
 	ctx.fillRect(b.left, waterTop, b.right - b.left, b.floor - waterTop); 
 }
 
@@ -160,6 +167,11 @@ function gameLoop(){
 			drawFog(fogBounds[layer]);
 			}
 		};
+
+	if (!lightsOn) {
+		ctx.fillStyle="rgba(0, 0, 20, 0.5)";
+		ctx.fillRect (0,0,W,H);
+	};
 
     requestAnimationFrame(gameLoop);
 }
