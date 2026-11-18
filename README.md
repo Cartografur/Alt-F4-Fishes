@@ -4,10 +4,11 @@ Trying to learn as I code, using W3Schools and Anthropic Claude AI as a teacher 
 
 Built with: plain HTML, CSS and JavaScript, no frameworks
 
-Current status: Working on v0
+Current status: working on v0.5, a v1 prerequisite 
 
 ## General Road Map
-- v0 - put fish in a box 🐟
+- v0 - ~~put fish in a box 🐟~~ ✅
+- ((v0.5 - Fog per object))
 - v1 - make it playable 🎮
 - v2 - care and management 🧼
 - v3 - breeding and feeding 🧬
