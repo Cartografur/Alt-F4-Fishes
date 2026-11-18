@@ -1,21 +1,44 @@
+
+
+// --- 0 INSTÄLLNINGAR allmänt
+const changeDirX = 0.12; //chans per sekund, höger vänster
+const changeDirY = 0.6; //chans per sekund, upp och ner
+const maxVY = 12; //förflyttning pixlar per sekund, maxvärde.
+const changeZ = 0.3; //chans per vändning. 1= alla vändningar resulterar i ändring av djup, 0.1 = 10% av alla vändningar ändrar djup
+
+const layerCount = 4; //Antal skikt för visuellt djup
+
+const lightColor = "rgba(0, 0, 20, 0.5)";
+const fogColor ="rgba(32, 113, 178, 0.2)"; //R G B Alpha (genomskinlighet)
+
+const fishAmnt = 35; //antal fiskar i akvariet
+
+// --- 0 INSTÄLLNINGAR TANK
 const canvas=document.getElementById("tank");
 const lightBtn = document.getElementById("lightBtn");
 let lightsOn=true;
 const ctx=canvas.getContext("2d");
 const W = canvas.width; //canvas bredd i px
 const H = canvas.height; //canvad höjd i px
+
 const lidY = 0; //top av tanken, lock, y-värde i framkant.
 const surfaceY = 20; //Vattenytans topp = horisontlinjen, y-värde
 const sandY = H-25; //sanden på famsidan av akvariet, y-värde
 const waterTop = surfaceY + 2; //bandet av vattenyta. högsta kant för fisk. Samma för alla 'djup'
 const vp = { x: W/2, y: surfaceY }; //vanishing point, mitten av horisontlinjen. Bredd/2 och y från vattenytans topp
-const backDepth = 0.75; //bakväggens djup
-const step = (1 - backDepth) / 3; //tjocklek på varje skiva
+const backDepth = 0.70; //bakväggens djup
+const step = (1 - backDepth) / layerCount; //tjocklek på varje skiva
 const backWall = makeBounds(backDepth);
-const bounds = [0.5, 1.5, 2.5].map(k => makeBounds(backDepth + step * k)); //fiskplan mitt i varje skiva
-const fogBounds = [1, 2].map(k => makeBounds(backDepth + step * k)); //dimskikt mellan skivorna
-const depthSpeed = step * 1.5; //hur snabbt fiskar glider mellan lager (s per sekund)
+const bounds = []; //fiskplan mitt i varje skiva mellan fog-layers
+	for (let k = 0; k < layerCount; k++) {
+		bounds.push(makeBounds(layerDepth(k)));
+	}
+const fogBounds = []; //fog-layer mellan skivorna
+	for (let k = 1; k < layerCount; k++) {
+		fogBounds.push(makeBounds(backDepth + step * k));
+	}
 
+const depthSpeed = step * 1.5; //hur snabbt fiskar glider mellan lager (s per sekund)
 
 lightBtn.addEventListener("click", () => {
 	lightsOn=!lightsOn;
@@ -44,7 +67,7 @@ function drawTank() {
 	ctx.fillRect(0, surfaceY, W, 2);
 }
 function drawFog(b) {
-	ctx.fillStyle="rgba(32, 113, 178, 0.4)"; //dim-lager,  rgb=röd, grön, blå, genomskinlighet (0 till 1) för att skapa djup
+	ctx.fillStyle=fogColor; //dim-lager,  rgb=röd, grön, blå, genomskinlighet (0 till 1) för att skapa djup
 	ctx.fillRect(b.left, waterTop, b.right - b.left, b.floor - waterTop); 
 }
 
@@ -61,7 +84,7 @@ const species = [
 
 // --- 3 Fiskstim
 const fishes = [];
-for (let i =0; i<50; i++) { //antal fiskar i akvariet
+for (let i =0; i<fishAmnt; i++) {
   const  sp = species[Math.floor(Math.random()*species.length)];
   fishes.push(makeFish(sp));    
   }
@@ -93,6 +116,10 @@ function fillPolygon(points, color) { //rita och fylla polygoner enligt position
 	ctx.fill();
 }
 
+function layerDepth(layer) { //djupet s mitt i en skiva
+	return backDepth + step * (layer + 0.5);
+}
+
 // --- 4:2 Fiskfunktioner
 function randomBetween(min, max) { // Formel för random random number, används för fiskars position
 	return min + Math.random()*(max-min);
@@ -115,21 +142,21 @@ function updateFish(f, dt) { //här uppdateras fiskens positions i tanken
 	}
 	const b = makeBounds(f.s); //väggarna på fiskens eget djup
 	let turned=false;
-	if (Math.random() < 0.12*dt) { // ett random tillägg för ändring av riktning i x (chans/sekund)
+	if (Math.random() < changeDirX*dt) { // ett random tillägg för ändring av riktning i x (chans/sekund)
 		f.vx *= -1;
 		turned = true;
 	}
-	if (Math.random() < 0.6*dt) { // ett random tillägg för ändring av riktning i y (chans/sekund)
-	f.vy = randomBetween(-12, 12);
+	if (Math.random() < changeDirY*dt) { // ett random tillägg för ändring av riktning i y (chans/sekund)
+		f.vy = randomBetween(-maxVY, maxVY);
 	}
 	
-	f.x+=f.vx*dt; //Samma som "fishx=fishy+fishvx", uppdaterar positioni x
+	f.x+=f.vx*dt; //Samma som "fishx=fishx+fishvx*delta t", uppdaterar positioni x
 	f.y+=f.vy*dt; //uppdaterar fisk i y-led, vy är random, inte fisk-specifik
 
 	if (f.x>=b.right-f.w) { //"chek" för kanter i x
-	f.x=b.right-f.w; //hindrar fisk från att simma utanför sitt lager
-	f.vx=-Math.abs(f.vx);
-	turned=true;
+		f.x=b.right-f.w; //hindrar fisk från att simma utanför sitt lager
+		f.vx=-Math.abs(f.vx);
+		turned=true;
 	}
 	if (f.x<=b.left){ 
 		f.x=b.left;
@@ -145,7 +172,7 @@ function updateFish(f, dt) { //här uppdateras fiskens positions i tanken
 		f.y=waterTop;
 		f.vy=Math.abs(f.vy);
 	}
-	if (turned && Math.random() < 0.3) switchLayer(f);	
+	if (turned && Math.random() < changeZ) switchLayer(f);	
 }
 
 function switchLayer(f) {
@@ -156,7 +183,7 @@ function switchLayer(f) {
 		dir = -1;
 	}
 	const newLayer = Math.max(0, Math.min(maxLayer, f.layer + dir));
-	f.targetS = backDepth + step * (newLayer + 0.5); //mitt i nya skivan
+	f.targetS = layerDepth(newLayer); //mitt i nya skivan
 }
 
 function drawFish(f) { //Här ritas fisken utifrån fisk-species 
@@ -177,9 +204,9 @@ function makeFish(sp) {
 	if (Math.random() < 0.5) {
 		dir = -1;
 	}
-	const layer = Math.floor(Math.random()*3);
+	const layer = Math.floor(Math.random()*bounds.length);
 	const b = bounds[layer];
-	const s = backDepth + step * (layer + 0.5); //Fiskens djup mitt i sitt befintliga skikt
+	const s = layerDepth(layer); //Fiskens djup mitt i sitt befintliga skikt
 	return {
 		layer: layer,
 		s: s,
@@ -187,7 +214,7 @@ function makeFish(sp) {
 		x: randomBetween(b.left, b.right-sp.w),
 		y: randomBetween(waterTop, b.floor-sp.h),
 		vx: sp.vx*dir,
-		vy: randomBetween(-12, 12),
+		vy: randomBetween(-maxVY, maxVY),
 		w: sp.w,
 		h: sp.h,
 		color: sp.color
@@ -205,17 +232,17 @@ function gameLoop(now){
 	
 	fishes.forEach(f => updateFish(f, dt));
 
-	for (let layer=0; layer < 3; layer++) { //Börja på lager 0. är lager mindre än 3, lägg till lager(?)
+	for (let layer=0; layer < bounds.length; layer++) { //Börja på lager 0. är antal lager mindre än max fortsätter de bearbetas
 		fishes.filter(f => f.layer === layer).forEach(f => drawFish(f));
-		if (layer < 2) {
+		if (layer < fogBounds.length) {
 			drawFog(fogBounds[layer]);
 			}
-		};
+		}
 
 	if (!lightsOn) {
-		ctx.fillStyle="rgba(0, 0, 20, 0.5)";
+		ctx.fillStyle=lightColor;
 		ctx.fillRect (0,0,W,H);
-	};
+	}
 
     requestAnimationFrame(gameLoop);
 }
