@@ -7,13 +7,14 @@ const H = canvas.height; //canvad höjd i px
 const lidY = 0; //top av tanken, lock, y-värde i framkant.
 const surfaceY = 20; //Vattenytans topp = horisontlinjen, y-värde
 const sandY = H-25; //sanden på famsidan av akvariet, y-värde
-const waterTop = surfaceY + 3; //bandet av vattenyta. högsta kant för fisk. Samma för alla 'djup'
+const waterTop = surfaceY + 2; //bandet av vattenyta. högsta kant för fisk. Samma för alla 'djup'
 const vp = { x: W/2, y: surfaceY }; //vanishing point, mitten av horisontlinjen. Bredd/2 och y från vattenytans topp
 const backDepth = 0.75; //bakväggens djup
 const step = (1 - backDepth) / 3; //tjocklek på varje skiva
 const backWall = makeBounds(backDepth);
 const bounds = [0.5, 1.5, 2.5].map(k => makeBounds(backDepth + step * k)); //fiskplan mitt i varje skiva
 const fogBounds = [1, 2].map(k => makeBounds(backDepth + step * k)); //dimskikt mellan skivorna
+const depthSpeed = step * 1.5; //hur snabbt fiskar glider mellan lager (s per sekund)
 
 
 lightBtn.addEventListener("click", () => {
@@ -51,13 +52,16 @@ function drawFog(b) {
 const species = [
 	{ name: "Red tetra", color: "#ff0000", w:3, h:2, vx:48 }, //vx är förflyttning i pixlar per sekund
 	{ name: "Yellow guppy", color: "#ffff00", w:3, h:3, vx:66 },
-	{ name: "Green needle", color: "#00ff00", w:10, h:1, vx: 30},
-	{ name: "Blue blobb", color: "#0000ff", w:8, h:7, vx:18} 
+	{ name: "Green needle", color: "#00ff00", w:15, h:1, vx: 30},
+	{ name: "Blue blobb", color: "#0000ff", w:8, h:6, vx:18},
+	{ name: "Orange platy", color: "#ff8800", w:5, h:3, vx:25 },
+	{ name: "Pink arrow", color: "#ff00ff", w:10, h:2, vx: 27}
+
 ];
 
 // --- 3 Fiskstim
 const fishes = [];
-for (let i =0; i<50; i++) {
+for (let i =0; i<50; i++) { //antal fiskar i akvariet
   const  sp = species[Math.floor(Math.random()*species.length)];
   fishes.push(makeFish(sp));    
   }
@@ -95,9 +99,25 @@ function randomBetween(min, max) { // Formel för random random number, används
 }
 
 function updateFish(f, dt) { //här uppdateras fiskens positions i tanken
-	const b = bounds[f.layer];
+	if (f.s !== f.targetS) { //fisken glider mot nytt djup
+		const oldS = f.s;
+		const maxChange = depthSpeed * dt;
+		const diff = f.targetS - f.s;
+		if (Math.abs(diff) <= maxChange) {
+			f.s = f.targetS; //framme
+		} else {
+			f.s += Math.sign(diff) * maxChange; //Math.sign ger 1 eller -1
+		}
+		const k = f.s / oldS; //skalning runt flyktpunkten
+		f.x = vp.x + k * (f.x - vp.x);
+		f.y = vp.y + k * (f.y - vp.y);
+		f.layer = Math.min(bounds.length - 1, Math.floor((f.s - backDepth) / step)); //vilken skiva den är i nu
+	}
+	const b = makeBounds(f.s); //väggarna på fiskens eget djup
+	let turned=false;
 	if (Math.random() < 0.12*dt) { // ett random tillägg för ändring av riktning i x (chans/sekund)
 		f.vx *= -1;
+		turned = true;
 	}
 	if (Math.random() < 0.6*dt) { // ett random tillägg för ändring av riktning i y (chans/sekund)
 	f.vy = randomBetween(-12, 12);
@@ -109,10 +129,12 @@ function updateFish(f, dt) { //här uppdateras fiskens positions i tanken
 	if (f.x>=b.right-f.w) { //"chek" för kanter i x
 	f.x=b.right-f.w; //hindrar fisk från att simma utanför sitt lager
 	f.vx=-Math.abs(f.vx);
+	turned=true;
 	}
 	if (f.x<=b.left){ 
 		f.x=b.left;
 		f.vx=Math.abs(f.vx);
+		turned=true;
 	}
 	
 	if (f.y>=b.floor-f.h) { //"Check" för kanter i y
@@ -123,6 +145,18 @@ function updateFish(f, dt) { //här uppdateras fiskens positions i tanken
 		f.y=waterTop;
 		f.vy=Math.abs(f.vy);
 	}
+	if (turned && Math.random() < 0.3) switchLayer(f);	
+}
+
+function switchLayer(f) {
+	if (f.s !== f.targetS) return; //glider redan, vänta tills den är framme
+	const maxLayer = bounds.length - 1;
+	let dir = 1;
+	if (Math.random() < 0.5) {
+		dir = -1;
+	}
+	const newLayer = Math.max(0, Math.min(maxLayer, f.layer + dir));
+	f.targetS = backDepth + step * (newLayer + 0.5); //mitt i nya skivan
 }
 
 function drawFish(f) { //Här ritas fisken utifrån fisk-species 
@@ -145,8 +179,11 @@ function makeFish(sp) {
 	}
 	const layer = Math.floor(Math.random()*3);
 	const b = bounds[layer];
+	const s = backDepth + step * (layer + 0.5); //Fiskens djup mitt i sitt befintliga skikt
 	return {
 		layer: layer,
+		s: s,
+		targetS: s,
 		x: randomBetween(b.left, b.right-sp.w),
 		y: randomBetween(waterTop, b.floor-sp.h),
 		vx: sp.vx*dir,
