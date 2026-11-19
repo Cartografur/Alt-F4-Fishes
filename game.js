@@ -11,7 +11,7 @@ const layerCount = 4; //Antal skikt för visuellt djup
 const lightColor = "rgba(0, 0, 20, 0.5)";
 const fogColor ="rgba(32, 113, 178, 0.2)"; //R G B Alpha (genomskinlighet)
 
-const fishAmnt = 35; //antal fiskar i akvariet
+const fishAmnt = 25; //antal fiskar i akvariet
 
 // --- 0 INSTÄLLNINGAR TANK
 const canvas=document.getElementById("tank");
@@ -76,7 +76,7 @@ const species = [
 	{ name: "Red tetra", color: "#ff0000", w:3, h:2, vx:48 }, //vx är förflyttning i pixlar per sekund
 	{ name: "Yellow guppy", color: "#ffff00", w:3, h:3, vx:66 },
 	{ name: "Green needle", color: "#00ff00", w:15, h:1, vx: 30},
-	{ name: "Blue blobb", color: "#0000ff", w:8, h:6, vx:18},
+	{ name: "Blue blobb", color: "#0000ff", w:20, h:15, vx:18},
 	{ name: "Orange platy", color: "#ff8800", w:5, h:3, vx:25 },
 	{ name: "Pink arrow", color: "#ff00ff", w:10, h:2, vx: 27}
 
@@ -230,14 +230,17 @@ function gameLoop(now){
 	
 	drawTank();
 	
-	fishes.forEach(f => updateFish(f, dt));
-
-	for (let layer=0; layer < bounds.length; layer++) { //Börja på lager 0. är antal lager mindre än max fortsätter de bearbetas
-		fishes.filter(f => f.layer === layer).forEach(f => drawFish(f));
-		if (layer < fogBounds.length) {
-			drawFog(fogBounds[layer]);
-			}
-		}
+	fishes.forEach(f => updateFish(f, dt));	
+	
+	const drawOrder = fishes.slice().sort((f1, f2) => f1.s - f2.s); //kopierar listan på fisk och sorterar bakifrån och fram på s
+	drawOrder.forEach(f => drawFish(f)); //ritar varje fisk från ordningen i drawOrder, bakifrån och fram
+	
+	//for (let layer=0; layer < bounds.length; layer++) { //Börja på lager 0. är antal lager mindre än max fortsätter de bearbetas
+	//	fishes.filter(f => f.layer === layer).forEach(f => drawFish(f));
+	//	if (layer < fogBounds.length) {
+	//		drawFog(fogBounds[layer]);
+	//		}
+	//	}
 
 	if (!lightsOn) {
 		ctx.fillStyle=lightColor;
