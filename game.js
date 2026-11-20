@@ -1,4 +1,7 @@
-
+const canvas=document.getElementById("tank");
+const lightBtn = document.getElementById("lightBtn");
+const depthUp = document.getElementById("depthUp");
+const depthDown = document.getElementById("depthDown");
 
 // --- 0 INSTÄLLNINGAR allmänt
 const changeDirX = 0.12; //chans per sekund, höger vänster
@@ -6,23 +9,34 @@ const changeDirY = 0.6; //chans per sekund, upp och ner
 const maxVY = 12; //förflyttning pixlar per sekund, maxvärde.
 const changeZ = 0.3; //chans per vändning. 1= alla vändningar resulterar i ändring av djup, 0.1 = 10% av alla vändningar ändrar djup
 
-const layerCount = 4; //Antal skikt för fiskar
+const depthBuffer = 0.3; //andel av främsta/bakersta bandet som fiskarna inte simmar i
+const depthSpeed = 0.1;  //hur snabbt fiskar glider i djupled (s per sekund)
+
+const minBands = 2; //minsta tankdjup (startnivå)
+const maxBands = 7; //största tankdjup
 
 const lightColor = "rgba(0, 0, 20, 0.5)";
 const waterColor = [32, 113, 178]; //R G B
 const fogDensity = 4; //grumlighet för visuellt djup. Högre värde mer grummel.
-const backdropFogS = 0.95; //separat låtsasdjup för bakgrunden i tanken för att kunna ställa foging individuellt
+const backdropFogS = 0.95; //separat låtsasdjup för bakgrunden i tanken för att kunna ställa foging individuellt, nära 1 är ljust, nära 0 mörkt
 
-const sandPalette = [[177,157,93], [185,167,111], [194,178,128], [202,188,145], [210,198,162], [219,209,179], [227,219,197]];
-const glassPalette = [[28,83,129], [33,97,150], [37,110,171], [42,124,192], [49,137,210], [70,149,215], [91,161,219]];
-const fogBands = sandPalette.length; //ett band per färg
-const sandFogAmount = 0.15; //hur mycket dimma sanden får, 0 = ingen, 1 = full
+const sandLight = [227, 219, 197];
+const sandDark = [177, 157, 93];
+const glassLight = [91, 161, 219];
+const glassDark = [28, 83, 129];
+
+const maxDepth = 0.45; //djupet tanken aldrig passerar
+const depthRatio = 0.8; //r, hur mycket tunnare varje band är än det framför 0.8 betyder 80% av föregående lagers tjocklek
+let bandCount = 5; //let, eftersom +/- knapparna ändrar det
+
+const fishFront = lerp(bandEdge(0), bandEdge(1), depthBuffer); //främsta djupet för fisk
+
+const sandFogAmount = 0.1; //hur mycket dimma sanden får, 0 = ingen, 1 = full
 
 const fishAmnt = 25; //antal fiskar i akvariet
 
 // --- 0 INSTÄLLNINGAR TANK
-const canvas=document.getElementById("tank");
-const lightBtn = document.getElementById("lightBtn");
+
 let lightsOn=true;
 const ctx=canvas.getContext("2d");
 const W = canvas.width; //canvas bredd i px
@@ -33,18 +47,22 @@ const surfaceY = 20; //Vattenytans topp = horisontlinjen, y-värde
 const sandY = H-25; //sanden på famsidan av akvariet, y-värde
 const waterTop = surfaceY + 2; //bandet av vattenyta. högsta kant för fisk. Samma för alla 'djup'
 const vp = { x: W/2, y: surfaceY }; //vanishing point, mitten av horisontlinjen. Bredd/2 och y från vattenytans topp
-const backDepth = 0.70; //bakväggens djup
-const step = (1 - backDepth) / layerCount; //tjocklek på varje skiva
-const backWall = makeBounds(backDepth);
-const bounds = []; //fiskplan
-	for (let k = 0; k < layerCount; k++) {
-		bounds.push(makeBounds(layerDepth(k)));
-	}
 
-const depthSpeed = step * 1.5; //hur snabbt fiskar glider mellan lager (s per sekund)
+let backDepth, backWall, fishBack; // alla värden räknas ut i updateDepth 
+updateDepth();
 
 lightBtn.addEventListener("click", () => {
 	lightsOn=!lightsOn;
+});
+depthUp.addEventListener("click", () => {
+	bandCount=Math.min(maxBands, bandCount + 1);
+	updateDepth();
+	fishes.forEach(f => { if (f.targetS < fishBack) f.targetS = randomDepth(); });
+});
+depthDown.addEventListener("click", () => {
+	bandCount=Math.max(minBands, bandCount - 1);
+	updateDepth();
+	fishes.forEach(f => { if (f.targetS < fishBack) f.targetS = randomDepth(); });
 });
 
 // --- 1 AKVARIUM/TANK
@@ -61,14 +79,15 @@ function drawTank() {
 	ctx.fillRect(backWall.left, surfaceY, backWall.right - backWall.left, backWall.floor - surfaceY);
 	
 	//band på sand och glas, framifrån och bakåt
-	for (let i = 0; i < fogBands; i++) {
-		const sA = 1 - (1 - backDepth) * i / fogBands;       //bandets främre kant
-		const sB = 1 - (1 - backDepth) * (i + 1) / fogBands; //bandets bakre kant
+	for (let i = 0; i < bandCount; i++) {
+		const sA = bandEdge(i);       //bandets främre kant
+		const sB = bandEdge(i+1); //bandets bakre kant
 		const a = makeBounds(sA);
 		const b = makeBounds(sB);
 		const sMid = (sA + sB) / 2; //dimma från mitten av bandet
-		const sandC = sandPalette[fogBands - 1 - i];
-		const glassC = glassPalette[fogBands - 1 - i];
+		const t = Math.min(1, (1 - sMid) / maxDepth); //0 vid frontglas, 1 vid maxDepth
+		const sandC = lerpColor(sandLight, sandDark, t);
+		const glassC = lerpColor(glassLight, glassDark, t);
 
 		fillPolygon([[a.left, a.floor], [b.left, b.floor], [b.right, b.floor], [a.right, a.floor]], fogColor(sandC, 1 - (1 - sMid) * sandFogAmount)); //sand
 		fillPolygon([[a.left, surfaceY], [b.left, surfaceY], [b.left, b.floor], [a.left, a.floor]], fogColor(glassC, 1)); //vänster glas, 1 = ingen dimma, sMid istället för 1 ger dimma
@@ -105,8 +124,19 @@ for (let i =0; i<fishAmnt; i++) {
 // --- 4 FUNKTIONER
 
 // --- 4:1 Skalning och akvarium
+function lerp(a,b,t) { //formel för linjär färndring, Linear interpolation
+	return a + t * (b - a); 
+}
+
 function scale(v,c,s) { //v = läget för front-glaset, c = center(vp) , s = skalfaktor för vissuelt djup 
-	return c + s * (v - c);
+	return lerp(c, v, s);
+}
+
+function lerpColor(c1, c2, t) { //lerp per färgkanal, returnerar [r, g, b] utan avrundning
+	const r = lerp(c1[0], c2[0], t);
+	const g = lerp(c1[1], c2[1], t);
+	const b = lerp(c1[2], c2[2], t);
+	return [r, g, b];
 }
 
 function makeBounds(s) { //s = skalfaktor. Funktion för skalning av de olika visuella lagrerna
@@ -129,8 +159,14 @@ function fillPolygon(points, color) { //rita och fylla polygoner enligt position
 	ctx.fill();
 }
 
-function layerDepth(layer) { //djupet s mitt i en skiva
-	return backDepth + step * (layer + 0.5);
+function bandEdge(k) {
+	return 1-maxDepth*(1-depthRatio**k); // ** är ^, men ^ är nåt annat i JS
+}
+
+function updateDepth() { //räknar om allt som beror på tankens djup
+	backDepth = bandEdge(bandCount); //bakväggens djup
+	fishBack = lerp(backDepth, bandEdge(bandCount - 1), depthBuffer); //bakersta djupet för fisk
+	backWall = makeBounds(backDepth);
 }
 
 // Functionen nedan kommer från Beer-Lambert.
@@ -143,19 +179,20 @@ function transmittance(s) { //T = e^(-c*d), d = 1 - s
 	return Math.exp(-fogDensity * (1 - s));
 }
 
-// r,g,b = uträkning för respektive kanal. T*objektets färg[kanal]+(1-T)*vattenfärg[kanal]
+// blandar objektets färg med vattenfärgen. T = 0 ger vattenfärg, T = 1 ger objektets egen färg
 function fogColor(color, s) {
 	const T = transmittance(s);
-
-	const r =  T*color[0]+(1-T)*waterColor[0];
-	const g =  T*color[1]+(1-T)*waterColor[1];	
-	const b =  T*color[2]+(1-T)*waterColor[2];		
-	return `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+	const c = lerpColor(waterColor, color, T);	
+	return `rgb(${Math.round(c[0])}, ${Math.round(c[1])}, ${Math.round(c[2])})`;
 }
 
 // --- 4:2 Fiskfunktioner
 function randomBetween(min, max) { // Formel för random random number, används för fiskars position
 	return min + Math.random()*(max-min);
+}
+
+function randomDepth() { //slumpar fiskens djup (s) efter tillgängligt utrymme mellan front och bakvägg
+	return randomBetween(fishBack, fishFront);
 }
 
 function updateFish(f, dt) { //här uppdateras fiskens positions i tanken
@@ -171,7 +208,6 @@ function updateFish(f, dt) { //här uppdateras fiskens positions i tanken
 		const k = f.s / oldS; //skalning runt flyktpunkten
 		f.x = vp.x + k * (f.x - vp.x);
 		f.y = vp.y + k * (f.y - vp.y);
-		f.layer = Math.min(bounds.length - 1, Math.floor((f.s - backDepth) / step)); //vilken skiva den är i nu
 	}
 	const b = makeBounds(f.s); //väggarna på fiskens eget djup
 	let turned=false;
@@ -205,18 +241,12 @@ function updateFish(f, dt) { //här uppdateras fiskens positions i tanken
 		f.y=waterTop;
 		f.vy=Math.abs(f.vy);
 	}
-	if (turned && Math.random() < changeZ) switchLayer(f);	
+	if (turned && Math.random() < changeZ) switchDepth(f);	
 }
 
-function switchLayer(f) {
+function switchDepth(f) {
 	if (f.s !== f.targetS) return; //glider redan, vänta tills den är framme
-	const maxLayer = bounds.length - 1;
-	let dir = 1;
-	if (Math.random() < 0.5) {
-		dir = -1;
-	}
-	const newLayer = Math.max(0, Math.min(maxLayer, f.layer + dir));
-	f.targetS = layerDepth(newLayer); //mitt i nya skivan
+	f.targetS = randomDepth();
 }
 
 function drawFish(f) { //Här ritas fisken utifrån fisk-species 
@@ -237,11 +267,9 @@ function makeFish(sp) {
 	if (Math.random() < 0.5) {
 		dir = -1;
 	}
-	const layer = Math.floor(Math.random()*bounds.length);
-	const b = bounds[layer];
-	const s = layerDepth(layer); //Fiskens djup mitt i sitt befintliga skikt
+	const s = randomDepth(); 
+	const b = makeBounds(s);
 	return {
-		layer: layer,
 		s: s,
 		targetS: s,
 		x: randomBetween(b.left, b.right-sp.w),
