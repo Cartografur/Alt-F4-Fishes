@@ -1,4 +1,4 @@
-const canvas=document.getElementById("tank");
+const canvas= document.getElementById("tank");
 const lightBtn = document.getElementById("lightBtn");
 const depthUp = document.getElementById("depthUp");
 const depthDown = document.getElementById("depthDown");
@@ -104,13 +104,17 @@ function drawTank() {
 }
 
 // --- 2 Species data
+const testImg = new Image();
+testImg.src = "sprites/fish_01.png";
+
 const species = [
-	{ name: "Red tetra", color: [255,0,0], w:3, h:2, vx:48 }, //vx är förflyttning i pixlar per sekund
-	{ name: "Yellow guppy", color: [255,255,0], w:3, h:3, vx:66 },
-	{ name: "Green needle", color: [0,255,0], w:15, h:1, vx: 30},
-	{ name: "Blue blobb", color: [0,0,255], w:8, h:6, vx:18},
-	{ name: "Orange platy", color: [255,136,0], w:5, h:3, vx:25 },
-	{ name: "Pink arrow", color: [255,0,255], w:10, h:2, vx: 27}
+	{ name: "Red tetra", 	color: [255,0,0], 	w: 3, 	h: 2, vx: 48 }, //vx är förflyttning i pixlar per sekund
+	{ name: "Yellow guppy", color: [255,255,0], w: 3, 	h: 3, vx: 66 },
+	{ name: "Green needle", color: [0,255,0], 	w: 15, 	h: 1, vx: 30 },
+	{ name: "Blue blobb", 	color: [0,0,255], 	w: 8, 	h: 6, vx: 18 },
+	{ name: "Orange platy", color: [255,136,0], w: 5, 	h: 3, vx: 25 },
+	{ name: "Pink arrow", 	color: [255,0,255], w: 10, 	h: 2, vx: 27 },
+	{ name: "Sprite test", 	sprite: testImg, 	w: 16, 	h: 8, vx: 20 }
 
 ];
 
@@ -250,15 +254,28 @@ function switchDepth(f) {
 }
 
 function drawFish(f) { //Här ritas fisken utifrån fisk-species 
-	ctx.fillStyle=fogColor(f.color, f.s);
-	ctx.fillRect(Math.floor(f.x), Math.floor(f.y), f.w, f.h); //avvrundar positionen för fiskens placering till jämna pixlar
-	
-	ctx.fillStyle="#000000"; //och nedan fiskens huvud beroende på rörelseriktning
-	if (f.vx>0){
-		ctx.fillRect(Math.floor(f.x) + f.w - 1, Math.floor(f.y), 1, 1);
-	}
-	else{
-		ctx.fillRect(Math.floor(f.x), Math.floor(f.y), 1, 1);
+	if (f.sprite) {
+		if (f.sprite.naturalWidth === 0) return; //bilden har inte laddats än
+		const img = tintSprite (f.sprite, f.s);
+		if (f.vx > 0) {
+			ctx.save();
+			ctx.scale(-1, 1);
+			ctx.drawImage(img, -Math.floor(f.x) - f.w, Math.floor(f.y));
+			ctx.restore();
+		} else {
+			ctx.drawImage(img, Math.floor(f.x), Math.floor(f.y));
+		}
+	} else {
+		ctx.fillStyle=fogColor(f.color, f.s);
+		ctx.fillRect(Math.floor(f.x), Math.floor(f.y), f.w, f.h); //avvrundar positionen för fiskens placering till jämna pixlar
+		
+		ctx.fillStyle="#000000"; //och nedan fiskens huvud beroende på rörelseriktning
+		if (f.vx>0){
+			ctx.fillRect(Math.floor(f.x) + f.w - 1, Math.floor(f.y), 1, 1);
+		}
+		else{
+			ctx.fillRect(Math.floor(f.x), Math.floor(f.y), 1, 1);
+		}
 	}
 }
 
@@ -278,8 +295,22 @@ function makeFish(sp) {
 		vy: randomBetween(-maxVY, maxVY),
 		w: sp.w,
 		h: sp.h,
-		color: sp.color
+		color: sp.color,
+		sprite: sp.sprite
 	};
+}
+
+function tintSprite(img, s) { //gör en dimmad kopia av spriten för djupet s
+	const c = document.createElement("canvas"); //en dold canvas, syns inte på sidan
+	c.width = img.width;
+	c.height = img.height;
+	const tctx = c.getContext("2d"); //eget namn, så den inte blandas ihop med ctx
+	tctx.drawImage(img, 0, 0); //spriten först
+	tctx.globalCompositeOperation = "source-atop"; //måla bara där spriten har pixlar
+	const T = transmittance(s);
+		tctx.fillStyle = `rgba(${waterColor[0]}, ${waterColor[1]}, ${waterColor[2]}, ${1 - T})`;
+	tctx.fillRect(0, 0, c.width, c.height);
+	return c; //en canvas kan ritas med drawImage precis som en bild
 }
 	
 // --- 5 LOOP det här är biten som animerar. Rensar och ritar om vyn
