@@ -33,7 +33,9 @@ const fishFront = lerp(bandEdge(0), bandEdge(1), depthBuffer); //främsta djupet
 
 const sandFogAmount = 0.1; //hur mycket dimma sanden får, 0 = ingen, 1 = full
 
-const fishAmnt = 25; //antal fiskar i akvariet
+const fishAmnt = 50; //antal fiskar i akvariet
+
+const tintSteps = 15; //antal steg mellan skuggning som genereras för varje fisk (antal skuggningar är 1+tintSteps)
 
 // --- 0 INSTÄLLNINGAR TANK
 
@@ -256,7 +258,7 @@ function switchDepth(f) {
 function drawFish(f) { //Här ritas fisken utifrån fisk-species 
 	if (f.sprite) {
 		if (f.sprite.naturalWidth === 0) return; //bilden har inte laddats än
-		const img = tintSprite (f.sprite, f.s);
+		const img = getTinted(f);
 		if (f.vx > 0) {
 			ctx.save();
 			ctx.scale(-1, 1);
@@ -296,21 +298,36 @@ function makeFish(sp) {
 		w: sp.w,
 		h: sp.h,
 		color: sp.color,
-		sprite: sp.sprite
+		sprite: sp.sprite,
+		name: sp.name
 	};
 }
 
-function tintSprite(img, s) { //gör en dimmad kopia av spriten för djupet s
+const tintCache = {}; //sparade dimmade kopior, nyckel = "artnamn_klass"
+
+function tintSprite(img, T) { //gör en dimmad kopia av spriten för transmittance, T (baserat på s)
 	const c = document.createElement("canvas"); //en dold canvas, syns inte på sidan
 	c.width = img.width;
 	c.height = img.height;
 	const tctx = c.getContext("2d"); //eget namn, så den inte blandas ihop med ctx
 	tctx.drawImage(img, 0, 0); //spriten först
 	tctx.globalCompositeOperation = "source-atop"; //måla bara där spriten har pixlar
-	const T = transmittance(s);
-		tctx.fillStyle = `rgba(${waterColor[0]}, ${waterColor[1]}, ${waterColor[2]}, ${1 - T})`;
+	tctx.fillStyle = `rgba(${waterColor[0]}, ${waterColor[1]}, ${waterColor[2]}, ${1 - T})`;
 	tctx.fillRect(0, 0, c.width, c.height);
 	return c; //en canvas kan ritas med drawImage precis som en bild
+}
+
+function getTinted(f) {//hämtar fiskens dimmade kopia, gör den om den inte finns
+	const T = transmittance(f.s);
+	const kl = Math.round(T * tintSteps);	// räkna ut fiskens klass k från f.s (transmittance och Math.round)
+	
+	const key = `${f.name}_${kl}`; // bygg nyckeln för en tintad sprite (fisknamn_konstant)
+	
+	if (!tintCache[key]){	// om nyckeln saknas i tintCache: skapa kopian med tintSprite och spara den där
+		tintCache[key] = tintSprite(f.sprite, kl/tintSteps);
+	}
+	
+	return tintCache[key];	// returnera kopian från tintCache
 }
 	
 // --- 5 LOOP det här är biten som animerar. Rensar och ritar om vyn
