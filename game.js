@@ -96,7 +96,7 @@ function drawTank() {
 		fillPolygon([[a.right, surfaceY], [b.right, surfaceY], [b.right, b.floor], [a.right, a.floor]], fogColor(glassC, 1)); //höger glas
 	}
 	
-	fillPolygon([[0, lidY], [W, lidY], [backWall.right, backWall.top], [backWall.left, backWall.top]], "#ffffba"); //top
+	fillPolygonSharp([[0, lidY], [W, lidY], [backWall.right, backWall.top], [backWall.left, backWall.top]], "#ffffba"); //top
 
 	ctx.fillStyle="#b3a57a"; //Sand framkant
 	ctx.fillRect(0,sandY,W,H-sandY);
@@ -165,6 +165,34 @@ function fillPolygon(points, color) { //rita och fylla polygoner enligt position
 	ctx.fill();
 }
 
+function fillPolygonSharp(points, color) {
+	ctx.fillStyle = color;
+	const ys = points.map(p => p[1]);   //alla hörns y-värden
+	const yMin = Math.min(...ys);       // ??? fråga
+	const yMax = Math.max(...ys);
+
+	for (let y = yMin; y<yMax; y++) { // räknar en rad i taget uppifrån och ner
+		const yc = y + 0.5;  //radens mittlinje
+		const xs = [];       //här samlas kanternas skärningar med mittlinjen
+		
+		for (let i = 0; i < points.length; i++) { // Varje kant i polygonen
+			const [x1, y1] = points[i];
+			const [x2, y2] = points[(i+1) % points.length]; //sista kanten går tillbaka till första hörnet (???)
+			if ((y1 <= yc && yc < y2) || (y2 <= yc && yc < y1)){ // ???
+				const t = (yc - y1) / (y2 -y1); // lerp baklänges
+				xs.push(lerp(x1, x2 ,t)); // x på samma ställe längs kanten
+			}
+		}
+		
+		xs.sort((a,b) => a-b); //sortera som tal, utan jämförelse sorteras de som text
+		for (let j = 0; j < xs.length; j += 2) { // ???
+			const xa = Math.round(xs[j]);
+			const xb = Math.round(xs[j+1]);
+			ctx.fillRect(xa, y, xb - xa, 1); // ???
+		}
+	}
+}
+
 function bandEdge(k) {
 	return 1-maxDepth*(1-depthRatio**k); // ** är ^, men ^ är nåt annat i JS
 }
@@ -184,7 +212,6 @@ function updateDepth() { //räknar om allt som beror på tankens djup
 function transmittance(s) { //T = e^(-c*d), d = 1 - s
 	return Math.exp(-fogDensity * (1 - s));
 }
-
 // blandar objektets färg med vattenfärgen. T = 0 ger vattenfärg, T = 1 ger objektets egen färg
 function fogColor(color, s) {
 	const T = transmittance(s);
@@ -319,14 +346,11 @@ function tintSprite(img, T) { //gör en dimmad kopia av spriten för transmittan
 
 function getTinted(f) {//hämtar fiskens dimmade kopia, gör den om den inte finns
 	const T = transmittance(f.s);
-	const kl = Math.round(T * tintSteps);	// räkna ut fiskens klass k från f.s (transmittance och Math.round)
-	
-	const key = `${f.name}_${kl}`; // bygg nyckeln för en tintad sprite (fisknamn_konstant)
-	
+	const cl = Math.round(T * tintSteps);	// räkna ut fiskens klass k från f.s (transmittance och Math.round)
+	const key = `${f.name}_${cl}`; // bygg nyckeln för en tintad sprite (fisknamn_klass)
 	if (!tintCache[key]){	// om nyckeln saknas i tintCache: skapa kopian med tintSprite och spara den där
-		tintCache[key] = tintSprite(f.sprite, kl/tintSteps);
+		tintCache[key] = tintSprite(f.sprite, cl/tintSteps);
 	}
-	
 	return tintCache[key];	// returnera kopian från tintCache
 }
 	
