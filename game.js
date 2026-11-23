@@ -106,27 +106,37 @@ function drawTank() {
 }
 
 // --- 2 Species data
-const testImg = new Image();
-testImg.src = "sprites/fish_01.png";
-
 const species = [
-	{ name: "Red tetra", 	color: [255,0,0], 	w: 3, 	h: 2, vx: 48 }, //vx är förflyttning i pixlar per sekund
-	{ name: "Yellow guppy", color: [255,255,0], w: 3, 	h: 3, vx: 66 },
-	{ name: "Green needle", color: [0,255,0], 	w: 15, 	h: 1, vx: 30 },
-	{ name: "Blue blobb", 	color: [0,0,255], 	w: 8, 	h: 6, vx: 18 },
-	{ name: "Orange platy", color: [255,136,0], w: 5, 	h: 3, vx: 25 },
-	{ name: "Pink arrow", 	color: [255,0,255], w: 10, 	h: 2, vx: 27 },
-	{ name: "Sprite test", 	sprite: testImg, 	w: 16, 	h: 8, vx: 20 }
+	{ name: "Red tetra", 	src: "sprites/RedTetra.png", 	vx: 48 }, //vx är förflyttning i pixlar per sekund
+	{ name: "Yellow guppy", src: "sprites/YellowGuppy.png", vx: 66 },
+	{ name: "Green needle", src: "sprites/GreenNeedle.png", vx: 30 },
+	{ name: "Blue blobb", 	src: "sprites/BlueBlob.png", 	vx: 18 },
+	{ name: "Orange platy", src: "sprites/OrangePlaty.png", vx: 25 },
+	{ name: "Pink arrow", 	src: "sprites/PinkArrow.png", 	vx: 27 },
+	{ name: "Sprite test", 	src: "sprites/fish_01.png", 	vx: 20 }
 
 ];
 
+const loads = species.map(sp => { // ett "löfte" per bild
+	sp.sprite = new Image();
+	sp.sprite.src = sp.src;
+	return sp.sprite.decode().then(() => { // när bilden är klar:
+		sp.w = sp.sprite.naturalWidth;
+		sp.h = sp.sprite.naturalHeight;
+	}).catch(err => {
+		console.error("Kunde inte ladda: " + sp.src);
+		throw err; // skicka felet vidare, så Promise.all fortfarande stoppar
+	});
+});
+
 // --- 3 Fiskstim
 const fishes = [];
-for (let i =0; i<fishAmnt; i++) {
-  const  sp = species[Math.floor(Math.random()*species.length)];
-  fishes.push(makeFish(sp));    
-  }
-	
+Promise.all(loads).then(() => { // väntar tills ALLA bilder är klara
+	for (let i = 0; i < fishAmnt; i++) {
+		const sp = species[Math.floor(Math.random() * species.length)];
+		fishes.push(makeFish(sp));
+	}
+});	
 // --- 4 FUNKTIONER
 
 // --- 4:1 Skalning och akvarium
@@ -284,7 +294,6 @@ function switchDepth(f) {
 
 function drawFish(f) { //Här ritas fisken utifrån fisk-species 
 	if (f.sprite) {
-		if (f.sprite.naturalWidth === 0) return; //bilden har inte laddats än
 		const img = getTinted(f);
 		if (f.vx > 0) {
 			ctx.save();
@@ -293,17 +302,6 @@ function drawFish(f) { //Här ritas fisken utifrån fisk-species
 			ctx.restore();
 		} else {
 			ctx.drawImage(img, Math.floor(f.x), Math.floor(f.y));
-		}
-	} else {
-		ctx.fillStyle=fogColor(f.color, f.s);
-		ctx.fillRect(Math.floor(f.x), Math.floor(f.y), f.w, f.h); //avvrundar positionen för fiskens placering till jämna pixlar
-		
-		ctx.fillStyle="#000000"; //och nedan fiskens huvud beroende på rörelseriktning
-		if (f.vx>0){
-			ctx.fillRect(Math.floor(f.x) + f.w - 1, Math.floor(f.y), 1, 1);
-		}
-		else{
-			ctx.fillRect(Math.floor(f.x), Math.floor(f.y), 1, 1);
 		}
 	}
 }
@@ -324,7 +322,6 @@ function makeFish(sp) {
 		vy: randomBetween(-maxVY, maxVY),
 		w: sp.w,
 		h: sp.h,
-		color: sp.color,
 		sprite: sp.sprite,
 		name: sp.name
 	};
