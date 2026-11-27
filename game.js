@@ -32,6 +32,7 @@ const sandFogAmount = 0.1; 	//hur mycket dimma sanden får, 0 = ingen, 1 = full
 const backdrop = [33,101,63]; //Backdrop (placeholder-färg)
 const bgColor = [113,191,204]; 	//backgrundfärg bakom tanken. Syns på höger vänster kant ovanför vattnet
 const lidColor = [255,255,186]; //Färg på locket
+const sandDzone = 0.4; //Hur mycket av ett bands halva bredd som dithras, 1=allt 0=inget
 
 		//	2:3 Fiskar och sprites
 const fishAmnt = 50; 		//antal fiskar i akvariet
@@ -62,6 +63,12 @@ const fishFront = lerp(bandEdge(0), bandEdge(1), depthBuffer); //främsta djupet
 let lightsOn=true;
 
 let backDepth, backWall, fishBack; // alla värden räknas ut i updateDepth 
+
+const sandCanvas = document.createElement("canvas"); //en dold canvas, syns inte på sidan
+sandCanvas.width = W;
+sandCanvas.height = H;
+
+const sctx = sandCanvas.getContext("2d"); 
 
 const tintCache = {}; //sparade dimmade kopior, nyckel = "artnamn_klass"
 
@@ -100,6 +107,12 @@ function randomBetween(min, max) { // Formel för random number, används för f
 function toRGB(color, a=1){ //konverterar en array till läsbart RGB-värde (färgsträng) för canvas
 	return `rgba(${Math.round(color[0])}, ${Math.round(color[1])}, ${Math.round(color[2])}, ${a})`;
 }
+function bandMid(i) { 
+	return (bandEdge(i) + bandEdge(i+1)) / 2; // bandets mitt-djup
+}
+function darkness(s) { 
+	return Math.min(1, (1 - s) / maxDepth); //0 vid frontglas, 1 vid maxDepth
+}
 
 	// === 7 DJUP OCH PERSPEKTIV
 function bandEdge(k) {
@@ -117,6 +130,7 @@ function updateDepth() { //räknar om allt som beror på tankens djup
 	backDepth = bandEdge(bandCount); //bakväggens djup
 	fishBack = lerp(backDepth, bandEdge(bandCount - 1), depthBuffer); //bakersta djupet för fisk
 	backWall = makeBounds(backDepth);
+	drawSand();
 }
 function randomDepth() { //slumpar fiskens djup (s) efter tillgängligt utrymme mellan front och bakvägg
 	return randomBetween(fishBack, fishFront);
@@ -212,19 +226,15 @@ function drawTank() {
 	
 	//band på sand och glas, framifrån och bakåt
 	for (let i = 0; i < bandCount; i++) {
-		const sA = bandEdge(i);       //bandets främre kant
-		const sB = bandEdge(i+1); //bandets bakre kant
-		const a = makeBounds(sA);
-		const b = makeBounds(sB);
-		const sMid = (sA + sB) / 2; //dimma från mitten av bandet
-		const t = Math.min(1, (1 - sMid) / maxDepth); //0 vid frontglas, 1 vid maxDepth
-		const sandC = lerpColor(sandLight, sandDark, t);
-		const glassC = lerpColor(glassLight, glassDark, t);
+		const a = makeBounds(bandEdge(i)); //bandets främre kant
+		const b = makeBounds(bandEdge(i+1)); //bandets bakre kant
+		const glassC = glassColor(i);
 
-		fillPolygon([[a.left, a.floor], [b.left, b.floor], [b.right, b.floor], [a.right, a.floor]], fogColor(sandC, 1 - (1 - sMid) * sandFogAmount)); //sand
+		fillPolygon([[a.left, a.floor], [b.left, b.floor], [b.right, b.floor], [a.right, a.floor]], sandColor(i)); //sand
 		fillPolygon([[a.left, surfaceY], [b.left, surfaceY], [b.left, b.floor], [a.left, a.floor]], glassC); //vänster glas
 		fillPolygon([[a.right, surfaceY], [b.right, surfaceY], [b.right, b.floor], [a.right, a.floor]], glassC); //höger glas
 	}
+	ctx.drawImage(sandCanvas,0,0);
 	
 	fillPolygonSharp([[0, lidY], [W, lidY], [backWall.right, backWall.top], [backWall.left, backWall.top]], lidColor); //top
 
@@ -233,6 +243,17 @@ function drawTank() {
 	
 	ctx.fillStyle=toRGB(surfaceColor); //Ytlinje
 	ctx.fillRect(0, surfaceY, W, surfaceH);
+}
+function glassColor(i) {
+	return lerpColor(glassLight, glassDark, darkness(bandMid(i)));
+}
+function sandColor(i) {
+	const s = bandMid(i);
+	const sandC = lerpColor(sandLight, sandDark, darkness(s));
+	return fogColor(sandC, 1 - (1 - s) * sandFogAmount);
+}
+function drawSand() {
+	sctx.clearRect(0,0,W,H);
 }
 
 
