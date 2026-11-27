@@ -118,6 +118,9 @@ function darkness(s) {
 function bandEdge(k) {
 	return 1-maxDepth*(1-depthRatio**k); // ** är ^, men ^ är nåt annat i JS
 }
+function bandPos(s) { //motsatsen till bandEdge: djup s in, band-tal k ut. Heltalsdelen = bandet, decimalen = hur långt in i bandet
+	return Math.log(1 - darkness(s))/Math.log(depthRatio);
+}
 function makeBounds(s) { //s = skalfaktor. Funktion för skalning av de olika visuella lagerna
 	return {
 		left: Math.round(scale(0, vp.x, s)),
@@ -165,7 +168,7 @@ function tintSprite(img, T) { //gör en dimmad kopia av spriten för transmittan
 }
 function getTinted(f) {//hämtar fiskens dimmade kopia, gör den om den inte finns
 	const T = transmittance(f.s);
-	const cl = Math.round(T * tintSteps);	// räkna ut fiskens klass k från f.s (transmittance och Math.round)
+	const cl = Math.round(T * tintSteps);	// räkna ut fiskens klass cl från f.s (transmittance och Math.round)
 	const key = `${f.name}_${cl}`; // bygg nyckeln för en tintad sprite (fisknamn_klass)
 	if (!tintCache[key]){	// om nyckeln saknas i tintCache: skapa kopian med tintSprite och spara den där
 		tintCache[key] = tintSprite(f.sprite, cl/tintSteps);
@@ -224,13 +227,11 @@ function drawTank() {
 	ctx.fillStyle = toRGB(waterColor, 1 - backT);
 	ctx.fillRect(backWall.left, surfaceY, backWall.right - backWall.left, backWall.floor - surfaceY);
 	
-	//band på sand och glas, framifrån och bakåt
+	//band på glas, framifrån och bakåt
 	for (let i = 0; i < bandCount; i++) {
 		const a = makeBounds(bandEdge(i)); //bandets främre kant
 		const b = makeBounds(bandEdge(i+1)); //bandets bakre kant
-		const glassC = glassColor(i);
-
-		fillPolygon([[a.left, a.floor], [b.left, b.floor], [b.right, b.floor], [a.right, a.floor]], sandColor(i)); //sand
+		const glassC = glassColor(i);t.
 		fillPolygon([[a.left, surfaceY], [b.left, surfaceY], [b.left, b.floor], [a.left, a.floor]], glassC); //vänster glas
 		fillPolygon([[a.right, surfaceY], [b.right, surfaceY], [b.right, b.floor], [a.right, a.floor]], glassC); //höger glas
 	}
@@ -252,8 +253,22 @@ function sandColor(i) {
 	const sandC = lerpColor(sandLight, sandDark, darkness(s));
 	return fogColor(sandC, 1 - (1 - s) * sandFogAmount);
 }
-function drawSand() {
-	sctx.clearRect(0,0,W,H);
+function drawSand() { //ritar sanden en gång på sand-canvasen, rad för rad, med dither mellan banden
+	sctx.clearRect(0, 0, W, H);
+	for (let y = backWall.floor; y < sandY; y++) { //från bakväggens golv till framkantens sand
+		const s = (y + 0.5 - surfaceY) / (sandY - surfaceY); //lerp baklänges: radens mitt-y ger djupet s
+		const b = makeBounds(s); //sandens vänster- och högerkant på det djupet
+		const u = bandPos(s) - 0.5; //band-tal räknat från bandmitt till bandmitt
+		const i = Math.floor(u); //bandet framför gränsen
+		const f = u - i; //0 = i bandets mitt, 0.5 = på gränsen, 1 = i nästa bands mitt
+		const p = Math.max(0, Math.min(1, (f - 0.5) / sandDzone + 0.5)); //chansen att pixeln får nästa bands färg
+		const cFront = toRGB(sandColor(Math.max(0, i))); //spärr: inget band framför band 0
+		const cBack = toRGB(sandColor(Math.min(bandCount - 1, i + 1))); //spärr: inget band bakom det sista
+		for (let x = b.left; x < b.right; x++) { //pixel för pixel längs raden
+			sctx.fillStyle = Math.random() < p ? cBack : cFront; //villkor ? om sant : om falskt, som OM() i Excel
+			sctx.fillRect(x, y, 1, 1);
+		}
+	}
 }
 
 
