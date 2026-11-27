@@ -231,7 +231,7 @@ function drawTank() {
 	for (let i = 0; i < bandCount; i++) {
 		const a = makeBounds(bandEdge(i)); //bandets främre kant
 		const b = makeBounds(bandEdge(i+1)); //bandets bakre kant
-		const glassC = glassColor(i);t.
+		const glassC = glassColor(i);
 		fillPolygon([[a.left, surfaceY], [b.left, surfaceY], [b.left, b.floor], [a.left, a.floor]], glassC); //vänster glas
 		fillPolygon([[a.right, surfaceY], [b.right, surfaceY], [b.right, b.floor], [a.right, a.floor]], glassC); //höger glas
 	}
